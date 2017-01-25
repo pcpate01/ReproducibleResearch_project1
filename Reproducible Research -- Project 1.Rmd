@@ -1,0 +1,159 @@
+---
+title: "Reproducible Research - -Project 1"
+author: "Pankaj C Patel"
+date: "January 25, 2017"
+output: html_document
+---
+
+```{R}
+library(knitr)
+opts_chunk$set(echo = TRUE)
+library(dplyr)
+library(lubridate)
+library(ggplot2)
+```
+
+#Load and process data
+
+```{R}
+
+data <- read.csv("activity.csv", header = TRUE, sep = ',', colClasses = c("numeric", "character",
+                                                                          "integer"))
+#Change the date format
+data$date <- ymd(data$date)
+
+#Check data
+str(data)
+head(data)
+```
+
+#1. What is mean total number of steps taken per day?
+
+For this part of the assignment the missing values can be ignored.
+
+    Calculate the total number of steps taken per day.
+    Make a histogram of the total number of steps taken each day.
+    Calculate and report the mean and median of the total number of steps taken per day.
+
+Methodology and Result
+
+    Calculate the total number of steps per day using dplyr and group by date:
+
+
+```{R}
+steps <- data %>%
+  filter(!is.na(steps)) %>%
+  group_by(date) %>%
+  summarize(steps = sum(steps)) %>%
+  print
+
+```
+##2.Use ggplot to plot histogram
+
+```{R}
+ggplot(steps, aes(x = steps)) +
+  geom_histogram(fill = "firebrick", binwidth = 1000) +
+  labs(title = "Histogram of Steps per day", x = "Steps per day", y = "Frequency")
+
+```
+
+##3. What are the mean and median steps in per day
+
+```{R}
+mean_steps <- mean(steps$steps, na.rm = TRUE)
+median_steps <- median(steps$steps, na.rm = TRUE)
+mean_steps
+median_steps
+
+```
+
+#What is the average daily activity pattern?
+
+    Make a time series plot (i.e. type = "l") of the 5-minute interval (x-axis) and the average number of steps taken, averaged across all days (y-axis).
+    Which 5-minute interval, on average across all the days in the dataset, contains the maximum number of steps?.
+
+Methodology and Result
+
+    Calculate the average number of steps taken in each 5-minute interval per day using dplyr and group by interval:
+```{R}
+
+interval <- data %>%
+  filter(!is.na(steps)) %>%
+  group_by(interval) %>%
+  summarize(steps = mean(steps))
+
+#Make time series interval
+ggplot(interval, aes(x=interval, y=steps)) +
+  geom_line(color = "firebrick")
+
+
+```
+
+##Use which.max() to find out the maximum steps, on average, across all the days:
+```{R}
+ interval[which.max(interval$steps),]
+ 
+```
+#Imputing missing values
+```{R}
+sum(is.na(data$steps))
+data_full <- data
+nas <- is.na(data_full$steps)
+avg_interval <- tapply(data_full$steps, data_full$interval, mean, na.rm=TRUE, simplify=TRUE)
+data_full$steps[nas] <- avg_interval[as.character(data_full$interval[nas])]
+sum(is.na(data_full$steps))
+```
+
+
+
+##Calculate the number of steps taken in each 5-minute interval per day using dplyr and group by interval. Use ggplot for making the histogram:
+```{R}
+steps_full <- data_full %>%
+  filter(!is.na(steps)) %>%
+  group_by(date) %>%
+  summarize(steps = sum(steps)) %>%
+  print
+
+ggplot(steps_full, aes(x = steps)) +
+  geom_histogram(fill = "firebrick", binwidth = 1000) +
+  labs(title = "Histogram of Steps per day, including missing values", x = "Steps per day", y = "Frequency")
+
+```
+
+##Calculate mean and median steps
+```{R}
+mean_steps_full <- mean(steps_full$steps, na.rm = TRUE)
+median_steps_full <- median(steps_full$steps, na.rm = TRUE)
+mean_steps_full
+median_steps_full
+```
+
+#Difference in weekend activity
+For this part the weekdays() will come handy. Use the dataset with the filled-in missing values for this part.
+
+    Create a new factor variable in the dataset with two levels - "weekday" and "weekend" indicating whether a given date is a weekday or weekend day.
+    Make a panel plot containing a time series plot (i.e. type = "l") of the 5-minute interval (x-axis) and the average number of steps taken, averaged across all weekday days or weekend days (y-axis).
+
+Methodology and Result
+
+    Use dplyr and mutate to create a new column, weektype, and apply whether the day is weekend or weekday:
+
+```{R}
+data_full <- mutate(data_full, weektype = ifelse(weekdays(data_full$date) == "Saturday" | weekdays(data_full$date) == "Sunday", "weekend", "weekday"))
+data_full$weektype <- as.factor(data_full$weektype)
+head(data_full)
+
+
+#Calculate the average steps in the 5-minute interval and use ggplot for making the time series of the 5-minute interval for weekday and weekend, and compare the average steps:
+
+interval_full <- data_full %>%
+  group_by(interval, weektype) %>%
+  summarise(steps = mean(steps))
+s <- ggplot(interval_full, aes(x=interval, y=steps, color = weektype)) +
+  geom_line() +
+  facet_wrap(~weektype, ncol = 1, nrow=2)
+print(s)
+
+```
+
+#From the plots it an individual is more during early hours on weekdays than during weekends. 
